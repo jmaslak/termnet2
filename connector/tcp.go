@@ -78,7 +78,7 @@ func (c *tcpConn) connectionOutputHandler() {
 	b := make([]byte, 65535) // Largest possible TCP payload
 	n, err := io.ReadAtLeast(c.conn, b, 1)
 	for err == nil && n > 0 {
-		c.fromConn <- TextMessage{Text: string(b[:n])}
+		c.fromConn <- DataMessage{Data: b[:n]}
 		n, err = io.ReadAtLeast(c.conn, b, 1)
 	}
 	if err != nil {
@@ -99,9 +99,9 @@ func (c *tcpConn) connectionInputHandler() {
 		}
 
 		switch m.(type) {
-		case TextMessage:
-			txtMsg := m.(TextMessage)
-			b := []byte(txtMsg.Text)
+		case DataMessage:
+			dataMsg := m.(DataMessage)
+			b := dataMsg.Data
 			n, err := c.conn.Write(b)
 			if err != nil || n != len(b) {
 				log.Print("Could not write full message out of socket")
@@ -110,7 +110,7 @@ func (c *tcpConn) connectionInputHandler() {
 		case DisconnectMessage:
 			return
 		default:
-			log.Print("Unknown message type: " + m.Type())
+			log.Print("Unknown message type: " + m.TypeString())
 		}
 	}
 }

@@ -43,9 +43,9 @@ func TestTcpListen(t *testing.T) {
 	outbound.Write([]byte("Hello"))
 	m, ok = <-connectionMsg.Conn.FromConn()
 	assert.True(t, ok, "Channel open")
-	assert.Equal(t, "Hello", m.(TextMessage).Text)
+	assert.Equal(t, "Hello", m.(DataMessage).String())
 
-	connectionMsg.Conn.ToConn() <- TextMessage{Text: "Foo"}
+	connectionMsg.Conn.ToConn() <- NewDataMessageFromString("Foo")
 	b := make([]byte, 65535)
 	n, err := outbound.Read(b)
 	assert.Equal(t, nil, err, "Outobund read has no error")

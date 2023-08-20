@@ -23,7 +23,7 @@ func main() {
 			fmt.Println("New connection!")
 			connector.StartLoopApp(msg.Conn)
 		default:
-			log.Fatal("Unknown message type: " + m.Type())
+			log.Fatal("Unknown message type: " + m.TypeString())
 		}
 	}
 }

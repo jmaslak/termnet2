@@ -33,14 +33,14 @@ func (loop loopApp) repeat() {
 			return
 		}
 		switch m.(type) {
-		case TextMessage:
+		case DataMessage:
 			out <- m
 		case DisconnectMessage:
 			// We just disconnect
 			log.Print("Disconnect received in loop connector")
 			return
 		default:
-			log.Print("Unknown message type: " + m.Type())
+			log.Print("Unknown message type: " + m.TypeString())
 		}
 	}
 }

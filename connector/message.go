@@ -1,7 +1,8 @@
 package connector
 
 type message interface {
-	Type() string
+	Type() MessageType
+	TypeString() string
 }
 
 type NewConnectionMessage struct {
@@ -10,19 +11,41 @@ type NewConnectionMessage struct {
 
 type DisconnectMessage struct{}
 
-type TextMessage struct {
-	Text string
+type DataMessage struct {
+	Data []byte
 }
 
 type ErrorMessage struct {
 	Err error
 }
 
-func (msg DisconnectMessage) Type() string    { return "DisconnectMessage" }
-func (msg NewConnectionMessage) Type() string { return "NewConnectionMessage" }
-func (msg TextMessage) Type() string          { return "TextMessage" }
-func (msg ErrorMessage) Type() string         { return "ErrorMessage" }
+type MessageType int64
 
-func NewTextMessage(s string) TextMessage {
-	return TextMessage{Text: s}
+const (
+	MTDisconnectMessage MessageType = iota
+	MTNewConnectionMessage
+	MTDataMessage
+	MTErrorMessage
+)
+
+func (msg DisconnectMessage) Type() MessageType    { return MTDisconnectMessage }
+func (msg NewConnectionMessage) Type() MessageType { return MTNewConnectionMessage }
+func (msg DataMessage) Type() MessageType          { return MTDataMessage }
+func (msg ErrorMessage) Type() MessageType         { return MTErrorMessage }
+
+func (msg DisconnectMessage) TypeString() string    { return "DisconnectMessage" }
+func (msg NewConnectionMessage) TypeString() string { return "NewConnectionMessage" }
+func (msg DataMessage) TypeString() string          { return "DataMessage" }
+func (msg ErrorMessage) TypeString() string         { return "ErrorMessage" }
+
+func NewDataMessage(b []byte) DataMessage {
+	return DataMessage{Data: b}
+}
+
+func NewDataMessageFromString(s string) DataMessage {
+	return NewDataMessage([]byte(s))
+}
+
+func (dataMessage DataMessage) String() string {
+	return string(dataMessage.Data)
 }
