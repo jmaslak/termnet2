@@ -11,39 +11,41 @@ import (
 
 func TestTcpListen(t *testing.T) {
 	t.Parallel()
-	tcp := NewTcp()
-	_, notify, err := tcp.Listen("0.0.0.0:0")
-	if err != nil {
-		t.Errorf("Received an error (%s) from listen", err)
-	}
+
+	tcp, err := NewTcpListen("0", "")
+	assert.Equal(t, nil, err, "Listener does not return error")
+
 	addr := tcp.Addr.String()
 	re, err := regexp.Compile("^(.*):")
-	if err != nil {
-		t.Errorf("Received a regex compile error (%s)", err)
-	}
+	assert.Equal(t, nil, err, "Regexp does not return error")
 	portStr := re.ReplaceAllString(addr, "")
 	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		t.Errorf("Received a integer conversion error (%s)", err)
-	}
+	assert.Equal(t, nil, err, "Atoi does not return error")
+	assert.Greater(t, port, 0, "Port > 0")
 
-	if port == 0 {
-		t.Error("Listening port invalid")
-	}
+	id := "0-TCP-" + addr
+	assert.Equal(t, id, tcp.Id(), "TCP listener ID correct")
 
 	outbound, err := net.Dial("tcp", addr)
 	assert.Equal(t, nil, err, "Error from net.Dial()")
 
-	m, ok := <-notify
+	m, ok := <-(tcp.Notify())
 	assert.True(t, ok, "Notify channel ok")
+	assert.IsType(t, NewConnectionMessage{}, m, "New connection message")
 
-	connection := m.(NewConnectionMessage)
+	connectionMsg := m.(NewConnectionMessage)
+	assert.IsType(t, NewConnectionMessage{}, connectionMsg, "New connection message")
+	assert.IsType(t, tcpConn{}, connectionMsg.Conn, "New connection message")
+
+	id = "0-TCP-" + addr + "-" + connectionMsg.Conn.(tcpConn).RemoteAddr().String()
+	assert.Equal(t, id, connectionMsg.Conn.Id(), "TCP listener ID correct")
+
 	outbound.Write([]byte("Hello"))
-	m, ok = <-connection.Out
+	m, ok = <-connectionMsg.Conn.FromConn()
 	assert.True(t, ok, "Channel open")
 	assert.Equal(t, "Hello", m.(TextMessage).Text)
 
-	connection.In <- TextMessage{Text: "Foo"}
+	connectionMsg.Conn.ToConn() <- TextMessage{Text: "Foo"}
 	b := make([]byte, 65535)
 	n, err := outbound.Read(b)
 	assert.Equal(t, nil, err, "Outobund read has no error")
@@ -51,10 +53,10 @@ func TestTcpListen(t *testing.T) {
 	assert.Equal(t, "Foo", string(b[:n]), "Foo is returned")
 
 	outbound.Close()
-	m, ok = <-connection.Out
+	m, ok = <-connectionMsg.Conn.FromConn()
 	assert.True(t, ok, "Channel open")
 	assert.IsType(t, DisconnectMessage{}, m, "Disconnect received")
 
-	_, ok = <-connection.Out
+	_, ok = <-connectionMsg.Conn.FromConn()
 	assert.False(t, ok, "Channel closed")
 }

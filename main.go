@@ -8,22 +8,20 @@ import (
 )
 
 func main() {
+	nodeId := "0"
 	fmt.Println("Starting...")
-	t := connector.NewTcp()
-
-	_, notify, err := t.Listen(":2222")
+	listen, err := connector.NewTcpListen(nodeId, ":2222")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	loop := connector.NewLoop()
 	for {
-		m := <-notify
+		m := <-listen.Notify()
 		switch m.(type) {
 		case connector.NewConnectionMessage:
 			msg := m.(connector.NewConnectionMessage)
 			fmt.Println("New connection!")
-			loop.Dial(msg.Out, msg.In)
+			connector.StartLoopApp(msg.Conn)
 		default:
 			log.Fatal("Unknown message type: " + m.Type())
 		}

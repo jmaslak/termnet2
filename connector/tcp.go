@@ -6,56 +6,66 @@ import (
 	"net"
 )
 
-type tcpType struct {
+type tcpListen struct {
+	id       string
 	listener net.Listener
 	Addr     net.Addr
+	control  chan message
+	notify   chan message
 }
+
+func (listen tcpListen) Id() string            { return listen.id }
+func (listen tcpListen) Control() chan message { return listen.control }
+func (listen tcpListen) Notify() chan message  { return listen.notify }
 
 type tcpConn struct {
-	conn net.Conn
-	in   chan message
-	out  chan message
+	id       string
+	conn     net.Conn
+	fromConn chan message
+	toConn   chan message
 }
 
-func NewTcp() tcpType {
-	tcp := tcpType{}
-	return tcp
-}
+func (tcp tcpConn) Id() string             { return tcp.id }
+func (tcp tcpConn) FromConn() chan message { return tcp.fromConn }
+func (tcp tcpConn) ToConn() chan message   { return tcp.toConn }
+func (tcp tcpConn) RemoteAddr() net.Addr   { return tcp.conn.RemoteAddr() }
 
-func (tcp *tcpType) Listen(addr string) (chan message, chan message, error) {
-	control := make(chan message)
-	notify := make(chan message)
+func NewTcpListen(id string, addr string) (tcpListen, error) {
+	listen := tcpListen{}
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		return control, notify, err
+		return listen, err
 	}
-	tcp.listener = l
-	tcp.Addr = l.Addr()
+	listen.listener = l
+	listen.Addr = l.Addr()
+	listen.id = id + "-TCP-" + listen.Addr.String()
+	listen.control = make(chan message)
+	listen.notify = make(chan message)
 
-	go tcp.doListen(control, notify)
+	go listen.doListen()
 
-	return control, notify, nil
+	return listen, nil
 }
 
-func (tcp *tcpType) doListen(control chan message, notify chan message) {
-	defer tcp.listener.Close()
+func (listen *tcpListen) doListen() {
+	defer listen.listener.Close()
 
 	for {
-		conn, err := tcp.listener.Accept()
+		conn, err := listen.listener.Accept()
 		if err != nil {
 			log.Print(err)
 		}
 
-		msg := NewConnectionMessage{}
-		msg.In = make(chan message)
-		msg.Out = make(chan message)
-		notify <- msg
-
 		c := tcpConn{}
 		c.conn = conn
-		c.in = msg.In
-		c.out = msg.Out
+		c.id = listen.id + "-" + conn.RemoteAddr().String()
+		c.fromConn = make(chan message)
+		c.toConn = make(chan message)
+
+		msg := NewConnectionMessage{}
+		msg.Conn = c
+		listen.notify <- msg
 
 		go c.connectionInputHandler()
 		go c.connectionOutputHandler()
@@ -63,19 +73,19 @@ func (tcp *tcpType) doListen(control chan message, notify chan message) {
 }
 
 func (c *tcpConn) connectionOutputHandler() {
-	defer close(c.out)
+	defer close(c.fromConn)
 
 	b := make([]byte, 65535) // Largest possible TCP payload
 	n, err := io.ReadAtLeast(c.conn, b, 1)
 	for err == nil && n > 0 {
-		c.out <- TextMessage{Text: string(b[:n])}
+		c.fromConn <- TextMessage{Text: string(b[:n])}
 		n, err = io.ReadAtLeast(c.conn, b, 1)
 	}
 	if err != nil {
 		if err == io.EOF {
-			c.out <- DisconnectMessage{}
+			c.fromConn <- DisconnectMessage{}
 		} else {
-			c.out <- ErrorMessage{Err: err}
+			c.fromConn <- ErrorMessage{Err: err}
 		}
 	}
 }
@@ -83,7 +93,7 @@ func (c *tcpConn) connectionOutputHandler() {
 func (c *tcpConn) connectionInputHandler() {
 	defer c.conn.Close()
 	for {
-		m, ok := <-c.in
+		m, ok := <-c.toConn
 		if !ok {
 			return
 		}

@@ -1,17 +1,22 @@
 package connector
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestLoopDial(t *testing.T) {
-	t.Parallel()
-	loop := NewLoop()
+	// t.Parallel()
 
-	in := make(chan message)
-	out := make(chan message)
+	dummy, err := NewDummyConnection("0")
+	assert.Equal(t, nil, err, "No dummy connection error")
 
-	loop.Dial(in, out)
-	in <- NewTextMessage("Test")
-	o := <-out
+	StartLoopApp(dummy)
+
+	dummy.Send(NewTextMessage("Test"))
+	o, ok := dummy.Recv()
+	assert.Equal(t, true, ok, "No dummy receive error")
 
 	if "Test" != o.(TextMessage).Text {
 		t.Errorf("Result incorrect, expected 'Test', got '%s'", o)
@@ -19,5 +24,5 @@ func TestLoopDial(t *testing.T) {
 
 	// Make sure meaningless messages are processed okay
 	n := NewConnectionMessage{}
-	in <- n
+	dummy.Send(n)
 }

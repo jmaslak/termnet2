@@ -5,8 +5,7 @@ type message interface {
 }
 
 type NewConnectionMessage struct {
-	In  chan message
-	Out chan message
+	Conn Connection
 }
 
 type DisconnectMessage struct{}

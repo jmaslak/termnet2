@@ -4,26 +4,28 @@ import (
 	"log"
 )
 
-type loopConn struct {
-	Id string
+type loopApp struct {
+	id   string
+	conn Connection
 }
 
-func NewLoop() loopConn {
-	loop := loopConn{}
+func StartLoopApp(conn Connection) {
+	loop := loopApp{}
 
 	// Set up defaults
-	loop.Id = "Loop"
+	loop.id = conn.Id() + "-LoopApp"
+	loop.conn = conn
 
-	return loop
+	go loop.repeat()
 }
 
-func (loop loopConn) Dial(in chan message, out chan message) error {
-	go loop.repeat(in, out)
-	return nil
-}
+func (loop loopApp) Id() string { return loop.id }
 
-func (loop loopConn) repeat(in chan message, out chan message) {
+func (loop loopApp) repeat() {
+	in := loop.conn.FromConn()
+	out := loop.conn.ToConn()
 	defer close(out)
+
 	for {
 		m, ok := <-in
 		if !ok {
