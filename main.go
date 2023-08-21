@@ -21,7 +21,15 @@ func main() {
 		case connector.NewConnectionMessage:
 			msg := m.(connector.NewConnectionMessage)
 			fmt.Println("New connection!")
-			connector.StartLoopApp(msg.Conn)
+			telnetConn, err := connector.NewTelnetFilter(msg.Conn)
+			if err != nil {
+				log.Fatal(err)
+			}
+			filteredConn, err := connector.NewNewlineOutFilter(telnetConn)
+			if err != nil {
+				log.Fatal(err)
+			}
+			connector.StartLoopApp(filteredConn)
 		default:
 			log.Fatal("Unknown message type: " + m.TypeString())
 		}
