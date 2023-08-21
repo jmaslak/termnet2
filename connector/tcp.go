@@ -78,7 +78,9 @@ func (c *tcpConn) connectionOutputHandler() {
 	b := make([]byte, 65535) // Largest possible TCP payload
 	n, err := io.ReadAtLeast(c.conn, b, 1)
 	for err == nil && n > 0 {
-		c.fromConn <- DataMessage{Data: b[:n]}
+		newSlice := make([]byte, n)
+		copy(newSlice, b[:n])
+		c.fromConn <- DataMessage{Data: newSlice}
 		n, err = io.ReadAtLeast(c.conn, b, 1)
 	}
 	if err != nil {
